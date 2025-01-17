@@ -10,7 +10,7 @@ Expects a [StreamQuery](#StreamQuery) and an optional starting [SequenceNumber](
 
 ## Writing
 
-Expects a set of [Events](#Events) and an [AppendCondition](#AppendCondition) and returns the last appended [SequenceNumber](#SequenceNumber).
+Expects a single [Event](#Event) or a set of [Events](#Events) and (optionally) an [AppendCondition](#AppendCondition).
 
 ## API
 
@@ -19,7 +19,7 @@ A potential interface of the `EventStore` (pseudo-code):
 ```
 EventStore {
   read(query: StreamQuery, options?: ReadOptions): EventStream
-  append(events: Events|Event, condition: AppendCondition): void
+  append(events: Events|Event, condition?: AppendCondition): void
 }
 ```
 
@@ -43,7 +43,7 @@ ReadOptions {
 The `StreamQuery` describes constraints that must be matched by [Event](#Event)s in the [EventStore](#EventStore)
 It effectively allows for filtering events by their [type](#EventType) and/or [tags](#Tags)
 
-- It _MAY_ contain a set of [StreamQuery Criteria](#StreamQuery-Criterion) – a `StreamQuery` with an empty criteria set is considered a "wildcard" query, i.e. it matches all events
+- It _MUST_ contain a set of [StreamQuery Criteria](#StreamQuery-Criterion)
 
 > [!NOTE]  
 > All criteria of a StreamQuery are merged into a _logical disjunction_, so events match the query if they match the first **OR** the second criterion...
@@ -98,13 +98,11 @@ It...
 
 When reading from the [EventStore](#EventStore) an `EventStream` is returned.
 
-It...
-
 - It _MUST_ be iterable
 - It _MUST_ return an [EventEnvelope](#EventEnvelope) for every iteration
 - It _CAN_ include new events if they occur during iteration
-- Individual [EventEnvelope](#EventEnvelope) instances _MAY_ be converted during iteration for performance optimization
 - Batches of events _MAY_ be loaded from the underlying storage at once for performance optimization
+- It _CAN_ provide additional functionality, e.g. a `subscribe()` function to realize reactive behavior
 
 ### EventEnvelope
 
@@ -189,12 +187,15 @@ A `Tag` can add domain specific metadata to an event allowing for custom partiti
 ### AppendCondition
 
 - It _MUST_ contain a [StreamQuery](#StreamQuery)
-- It _MUST_ contain a [ExpectedHighestSequenceNumber](#ExpectedHighestSequenceNumber)
+- It _MUST_ be _either_ a
+  - [SequenceNumber](#SequenceNumber) - representing the highest sequence number that was consumed when building the condition
+  - `NONE` - no event must match the specified [StreamQuery](#StreamQuery)
 
-### ExpectedHighestSequenceNumber
+#### 
 
-Can _either_ represent an instance of [SequenceNumber](#SequenceNumber)
-Or one of:
-
-- `NONE` – No event must match the specified [StreamQuery](#StreamQuery)
-- `ANY` – Any event matches (= wildcard [AppendCondition](#AppendCondition))
+```
+AppendCondition {
+  query: StreamQuery
+  highestSequenceNumber: SequenceNumber | NONE
+}
+```
